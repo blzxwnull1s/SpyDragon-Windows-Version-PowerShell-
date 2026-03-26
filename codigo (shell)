@@ -1,0 +1,1128 @@
+# ============================================================
+#   FUCK CYBER BULLYING — Ethical OSINT Toolkit v1.0
+#   Version: Windows PowerShell
+#   Solo para uso etico, documentacion y autodefensa digital
+#   Requiere: PowerShell 5.1+ / Windows 10 o superior
+# ============================================================
+# Uso:
+#   1. Abre PowerShell como Administrador
+#   2. Ejecuta: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+#   3. Luego:   .\fcb_osint.ps1
+# ============================================================
+
+#Requires -Version 5.1
+
+# ── Encoding UTF-8 para caracteres especiales ─────────────────
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+# ── Colores ───────────────────────────────────────────────────
+function Write-Color {
+    param(
+        [string]$Text,
+        [ConsoleColor]$FG = [ConsoleColor]::White,
+        [switch]$NoNewline
+    )
+    if ($NoNewline) {
+        Write-Host $Text -ForegroundColor $FG -NoNewline
+    } else {
+        Write-Host $Text -ForegroundColor $FG
+    }
+}
+
+function Pause-Menu {
+    Write-Host ""
+    Write-Color "  Presiona ENTER para continuar..." -FG DarkGray
+    $null = Read-Host
+}
+
+function Show-Section {
+    param([string]$Title)
+    Clear-Host
+    Write-Host ""
+    Write-Color "  +==========================================+" -FG Cyan
+    Write-Color "  |  $Title" -FG White
+    Write-Color "  +==========================================+" -FG Cyan
+    Write-Host ""
+}
+
+function Show-Result {
+    param([string]$Label, [string]$Value)
+    Write-Color "  > " -FG Green -NoNewline
+    Write-Color "${Label}: " -FG White -NoNewline
+    Write-Color $Value -FG Yellow
+}
+
+function Show-Header {
+    Clear-Host
+    Write-Host ""
+    Write-Color "         .                              ." -FG Red
+    Write-Color "        /|\          SANGRE            /|\" -FG Red
+    Write-Color "       / | \       POR LOS QUE        / | \" -FG Red
+    Write-Color "      /  |  \      SUFREN EN         /  |  \" -FG Red
+    Write-Color "     /   |   \      SILENCIO        /   |   \" -FG Red
+    Write-Color "    -------------------------------------------" -FG Red
+    Write-Host ""
+    Write-Color "              :::::::::::::::::::::" -FG DarkGray
+    Write-Color "              ::  +===========+  ::" -FG DarkGray
+    Write-Color "              ::  |  O     O  |  ::" -FG DarkGray
+    Write-Color "              ::  |     v     |  ::" -FG DarkGray
+    Write-Color "              ::  |   (   )   |  ::" -FG DarkGray
+    Write-Color "              ::  +====+======+  ::" -FG DarkGray
+    Write-Color "              ::::::::::::::::::::" -FG DarkGray
+    Write-Host ""
+    Write-Host "  " -NoNewline
+    Write-Host "  [X]  FUCK CYBER BULLYING - OSINT TOOLKIT v1.0  [X]  " -BackgroundColor DarkRed -ForegroundColor White
+    Write-Host ""
+    Write-Color "  ---------------------------------------------------------" -FG DarkGray
+    Write-Color "  [!]  Solo uso etico | Solo sistemas con autorizacion  [!]" -FG Yellow
+    Write-Color "  ---------------------------------------------------------" -FG DarkGray
+    Write-Host ""
+}
+
+function Show-MainMenu {
+    Show-Header
+    Write-Color "  +-------------------------------------------------------+" -FG Cyan
+    Write-Color "  |                   MENU PRINCIPAL                      |" -FG White
+    Write-Color "  +--------------------------+-----------------------------+" -FG Cyan
+    Write-Color "  | [01] IP Info / Lookup    | [21] Sherlock (usuario)    |" -FG Green
+    Write-Color "  | [02] GeoIP de IP         | [22] Buscar en Pastebin    |" -FG Green
+    Write-Color "  | [03] WHOIS Dominio       | [23] Google Dork basico    |" -FG Green
+    Write-Color "  | [04] DNS Lookup          | [24] Info de foto (EXIF)   |" -FG Green
+    Write-Color "  | [05] Cabeceras HTTP      | [25] Hash de archivo       |" -FG Green
+    Write-Color "  | [06] Ping Host           | [26] Detectar VPN/Proxy    |" -FG Green
+    Write-Color "  | [07] Traceroute          | [27] TOR Exit Nodes        |" -FG Green
+    Write-Color "  | [08] Puertos Abiertos    | [28] Buscar en Shodan      |" -FG Green
+    Write-Color "  | [09] Info SSL/TLS        | [29] IP Negra / Blocklist  |" -FG Green
+    Write-Color "  | [10] Subdominios OSINT   | [30] Reputacion dominio    |" -FG Green
+    Write-Color "  +--------------------------+-----------------------------+" -FG Cyan
+    Write-Color "  | [11] Info num. telefono  | [31] Mi IP publica         |" -FG Magenta
+    Write-Color "  | [12] GeoIP de telefono   | [32] Red local info        |" -FG Magenta
+    Write-Color "  | [13] Carrier / Operadora | [33] Escaneo red local     |" -FG Magenta
+    Write-Color "  | [14] Analisis de Email   | [34] Puerto especifico     |" -FG Magenta
+    Write-Color "  | [15] Cabecera de Email   | [35] Geoloc coordenadas    |" -FG Magenta
+    Write-Color "  | [16] Email en brechas    | [36] Whois IP              |" -FG Magenta
+    Write-Color "  | [17] robots.txt OSINT    | [37] Analisis de URL       |" -FG Magenta
+    Write-Color "  | [18] Dominio -> IP       | [38] IP desde Email        |" -FG Magenta
+    Write-Color "  | [19] Tecnologias web     | [39] Generar reporte       |" -FG Magenta
+    Write-Color "  | [20] Reputacion IP       | [40] Ayuda y legal         |" -FG Magenta
+    Write-Color "  +--------------------------+-----------------------------+" -FG Cyan
+    Write-Color "  |              [00] Salir                               |" -FG Red
+    Write-Color "  +-------------------------------------------------------+" -FG Cyan
+    Write-Host ""
+    Write-Color "  Selecciona opcion: " -FG White -NoNewline
+}
+
+# ── Funcion auxiliar para peticiones HTTP ─────────────────────
+function Invoke-API {
+    param([string]$Url)
+    try {
+        $response = Invoke-RestMethod -Uri $Url -TimeoutSec 10 -ErrorAction Stop
+        return $response
+    } catch {
+        return $null
+    }
+}
+
+function Invoke-WebRaw {
+    param([string]$Url)
+    try {
+        $response = Invoke-WebRequest -Uri $Url -TimeoutSec 10 -UseBasicParsing -ErrorAction Stop
+        return $response.Content
+    } catch {
+        return $null
+    }
+}
+
+# ══════════════════════════════════════════════════════════════
+#  HERRAMIENTAS
+# ══════════════════════════════════════════════════════════════
+
+# 01 — IP Info
+function Tool-01 {
+    Show-Section "01 - IP Info / Lookup"
+    Write-Color "  IP o deja vacio para tu IP: " -FG White -NoNewline
+    $IP = Read-Host
+    if ([string]::IsNullOrWhiteSpace($IP)) {
+        $IP = (Invoke-WebRaw "https://api.ipify.org").Trim()
+    }
+    $data = Invoke-API "https://ipapi.co/$IP/json/"
+    if ($data) {
+        Show-Result "IP"           $data.ip
+        Show-Result "Pais"         $data.country_name
+        Show-Result "Region"       $data.region
+        Show-Result "Ciudad"       $data.city
+        Show-Result "Coordenadas"  "$($data.latitude), $($data.longitude)"
+        Show-Result "ISP"          $data.org
+        Show-Result "Zona horaria" $data.timezone
+        Show-Result "ASN"          $data.asn
+    } else {
+        Write-Color "  [!] No se pudo obtener datos de la IP." -FG Red
+    }
+    Pause-Menu
+}
+
+# 02 — GeoIP de IP
+function Tool-02 {
+    Show-Section "02 - GeoIP de IP"
+    Write-Color "  Ingresa la IP: " -FG White -NoNewline
+    $IP = Read-Host
+    $data = Invoke-API "http://ip-api.com/json/$IP"
+    if ($data) {
+        Show-Result "Pais"         $data.country
+        Show-Result "Ciudad"       $data.city
+        Show-Result "Lat/Lon"      "$($data.lat), $($data.lon)"
+        Show-Result "ISP"          $data.isp
+        Show-Result "Org"          $data.org
+        Show-Result "Codigo zip"   $data.zip
+        Show-Result "Zona horaria" $data.timezone
+        Write-Host ""
+        Write-Color "  Google Maps: https://maps.google.com/?q=$($data.lat),$($data.lon)" -FG DarkGray
+    } else {
+        Write-Color "  [!] No se pudo obtener datos." -FG Red
+    }
+    Pause-Menu
+}
+
+# 03 — WHOIS Dominio
+function Tool-03 {
+    Show-Section "03 - WHOIS Dominio"
+    Write-Color "  Dominio (ej: ejemplo.com): " -FG White -NoNewline
+    $DOM = Read-Host
+    try {
+        $result = & whois $DOM 2>&1
+        if ($LASTEXITCODE -ne 0 -or -not $result) {
+            # Alternativa via web
+            $data = Invoke-WebRaw "https://www.whois.com/whois/$DOM"
+            Write-Color "  Abre en navegador: https://www.whois.com/whois/$DOM" -FG Yellow
+        } else {
+            $result | Select-String -Pattern "registrar|creation|expir|name server|registrant|email|status" -CaseSensitive:$false |
+                ForEach-Object { Write-Color "  > $($_.Line)" -FG White }
+        }
+    } catch {
+        Write-Color "  Abre en navegador: https://www.whois.com/whois/$DOM" -FG Yellow
+    }
+    Pause-Menu
+}
+
+# 04 — DNS Lookup
+function Tool-04 {
+    Show-Section "04 - DNS Lookup"
+    Write-Color "  Dominio: " -FG White -NoNewline
+    $DOM = Read-Host
+    foreach ($TYPE in @("A","AAAA","MX","NS","TXT","CNAME")) {
+        Write-Color "  -- $TYPE --" -FG Cyan
+        try {
+            $records = Resolve-DnsName -Name $DOM -Type $TYPE -ErrorAction Stop
+            foreach ($r in $records) {
+                $val = if ($r.IPAddress) { $r.IPAddress } elseif ($r.NameExchange) { $r.NameExchange } elseif ($r.Strings) { $r.Strings -join " " } else { $r.ToString() }
+                Write-Color "  > $val" -FG Yellow
+            }
+        } catch {
+            Write-Color "  > (sin registros $TYPE)" -FG DarkGray
+        }
+    }
+    Pause-Menu
+}
+
+# 05 — Cabeceras HTTP
+function Tool-05 {
+    Show-Section "05 - Cabeceras HTTP"
+    Write-Color "  URL (con https://): " -FG White -NoNewline
+    $URL = Read-Host
+    try {
+        $resp = Invoke-WebRequest -Uri $URL -Method Head -TimeoutSec 10 -UseBasicParsing -ErrorAction Stop
+        foreach ($h in $resp.Headers.GetEnumerator()) {
+            Write-Color "  > $($h.Key): $($h.Value)" -FG White
+        }
+    } catch {
+        Write-Color "  [!] No se pudo conectar: $_" -FG Red
+    }
+    Pause-Menu
+}
+
+# 06 — Ping Host
+function Tool-06 {
+    Show-Section "06 - Ping Host"
+    Write-Color "  Host o IP: " -FG White -NoNewline
+    $HOST = Read-Host
+    $result = Test-Connection -ComputerName $HOST -Count 5 -ErrorAction SilentlyContinue
+    if ($result) {
+        foreach ($r in $result) {
+            Show-Result "Respuesta" "Desde $($r.Address) - Tiempo: $($r.Latency)ms - TTL: $($r.Options.Ttl)"
+        }
+        $avg = ($result | Measure-Object -Property Latency -Average).Average
+        Write-Host ""
+        Show-Result "Promedio latencia" "${avg}ms"
+        Write-Color "  [+] Host ACTIVO" -FG Green
+    } else {
+        Write-Color "  [-] Host no responde o inaccesible" -FG Red
+    }
+    Pause-Menu
+}
+
+# 07 — Traceroute
+function Tool-07 {
+    Show-Section "07 - Traceroute"
+    Write-Color "  Host o IP: " -FG White -NoNewline
+    $HOST = Read-Host
+    Write-Host ""
+    # tracert es el equivalente de Windows
+    $result = & tracert -d -h 15 $HOST 2>&1
+    foreach ($line in $result) {
+        Write-Color "  $line" -FG White
+    }
+    Pause-Menu
+}
+
+# 08 — Puertos Abiertos
+function Tool-08 {
+    Show-Section "08 - Puertos Abiertos"
+    Write-Color "  IP o host: " -FG White -NoNewline
+    $HOST = Read-Host
+    Write-Host ""
+    $PORTS = @(21,22,23,25,53,80,110,143,443,445,3306,3389,5432,6379,8080,8443,27017)
+    Write-Color "  Escaneando $($PORTS.Count) puertos en $HOST ..." -FG Yellow
+    Write-Host ""
+    foreach ($PORT in $PORTS) {
+        $tcp = New-Object System.Net.Sockets.TcpClient
+        try {
+            $conn = $tcp.BeginConnect($HOST, $PORT, $null, $null)
+            $wait = $conn.AsyncWaitHandle.WaitOne(500, $false)
+            if ($wait -and $tcp.Connected) {
+                Write-Color "  [+] Puerto $PORT ABIERTO" -FG Green
+            }
+            $tcp.Close()
+        } catch { $tcp.Close() }
+    }
+    Write-Host ""
+    Write-Color "  [*] Escaneo completado." -FG Cyan
+    Pause-Menu
+}
+
+# 09 — Info SSL/TLS
+function Tool-09 {
+    Show-Section "09 - Info SSL/TLS"
+    Write-Color "  Dominio (sin https): " -FG White -NoNewline
+    $DOM = Read-Host
+    try {
+        $tcp = New-Object System.Net.Sockets.TcpClient($DOM, 443)
+        $ssl = New-Object System.Net.Security.SslStream($tcp.GetStream(), $false,
+            { param($s,$c,$ch,$e) $true })
+        $ssl.AuthenticateAsClient($DOM)
+        $cert = $ssl.RemoteCertificate
+        $cert2 = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($cert)
+        Show-Result "Dominio"       $DOM
+        Show-Result "Sujeto CN"     $cert2.Subject
+        Show-Result "Emisor"        $cert2.Issuer
+        Show-Result "Valido desde"  $cert2.NotBefore.ToString("yyyy-MM-dd")
+        Show-Result "Valido hasta"  $cert2.NotAfter.ToString("yyyy-MM-dd")
+        Show-Result "Thumbprint"    $cert2.Thumbprint
+        $ssl.Close(); $tcp.Close()
+    } catch {
+        Write-Color "  [!] Error SSL: $_" -FG Red
+    }
+    Pause-Menu
+}
+
+# 10 — Subdominios OSINT
+function Tool-10 {
+    Show-Section "10 - Subdominios OSINT (crt.sh)"
+    Write-Color "  Dominio: " -FG White -NoNewline
+    $DOM = Read-Host
+    try {
+        $data = Invoke-RestMethod -Uri "https://crt.sh/?q=%25.$DOM&output=json" -TimeoutSec 20 -ErrorAction Stop
+        $subs = $data | ForEach-Object { $_.name_value -split "`n" } | Sort-Object -Unique
+        foreach ($sub in $subs) {
+            Write-Color "  > $sub" -FG Yellow
+        }
+        Write-Host ""
+        Show-Result "Total encontrados" $subs.Count
+    } catch {
+        Write-Color "  [!] Error consultando crt.sh" -FG Red
+    }
+    Pause-Menu
+}
+
+# 11 — Info numero de telefono
+function Tool-11 {
+    Show-Section "11 - Info Numero Telefonico"
+    Write-Color "  Numero (con codigo pais, ej +573001234567): " -FG White -NoNewline
+    $NUM = Read-Host
+    $data = Invoke-API "https://phonevalidation.abstractapi.com/v1/?api_key=demo&phone=$NUM"
+    if ($data -and $data.valid -ne $null) {
+        Show-Result "Valido"    $data.valid
+        Show-Result "Pais"      $data.country.name
+        Show-Result "Formato"   $data.format.international
+        Show-Result "Tipo"      $data.type
+        Show-Result "Operadora" $data.carrier
+    } else {
+        $CC = $NUM.Substring(0, [Math]::Min(3, $NUM.Length))
+        Show-Result "Numero"  $NUM
+        Show-Result "Prefijo" $CC
+        Write-Host ""
+        Write-Color "  Para datos completos, registra API key en:" -FG DarkGray
+        Write-Color "  https://numverify.com  o  https://app.abstractapi.com" -FG DarkGray
+    }
+    Pause-Menu
+}
+
+# 12 — GeoIP de telefono
+function Tool-12 {
+    Show-Section "12 - GeoLocalizacion de Telefono"
+    Write-Color "  Numero (con codigo pais, ej +573001234567): " -FG White -NoNewline
+    $NUM = Read-Host
+    Write-Host ""
+    Write-Color "  [!] La geolocalizacion de telefonos esta limitada por ley." -FG Yellow
+    Write-Color "      Solo se puede obtener pais y operadora por prefijo." -FG Yellow
+    Write-Host ""
+    $PREFIX = $NUM.Substring(0, [Math]::Min(3, $NUM.Length))
+    $pais = switch ($PREFIX) {
+        "+57" { "Colombia" }
+        "+1"  { "EE.UU. / Canada" }
+        "+34" { "Espana" }
+        "+52" { "Mexico" }
+        "+54" { "Argentina" }
+        "+55" { "Brasil" }
+        "+44" { "Reino Unido" }
+        "+49" { "Alemania" }
+        "+33" { "Francia" }
+        default { "Desconocido (prefijo: $PREFIX)" }
+    }
+    Show-Result "Pais"   $pais
+    Show-Result "Numero" $NUM
+    Write-Host ""
+    Write-Color "  Para geolocalizacion precisa se requiere orden judicial" -FG DarkGray
+    Write-Color "  o cooperacion con operadora. APIs publicas: pais/region solo." -FG DarkGray
+    Pause-Menu
+}
+
+# 13 — Carrier
+function Tool-13 {
+    Show-Section "13 - Carrier / Operadora de Telefono"
+    Write-Color "  Numero (con codigo pais): " -FG White -NoNewline
+    $NUM = Read-Host
+    $data = Invoke-API "https://api.telnyx.com/v2/number_lookup/$NUM"
+    if ($data -and $data.data.carrier) {
+        Show-Result "Operadora" $data.data.carrier.name
+        Show-Result "Tipo"      $data.data.line_type
+        Show-Result "Pais"      $data.data.country_code
+    } else {
+        Write-Color "  Servicio requiere API key. Opciones:" -FG DarkGray
+        Write-Color "  > https://telnyx.com (gratis con registro)" -FG Green
+        Write-Color "  > https://numverify.com" -FG Green
+        Write-Color "  > https://hlr-lookups.com" -FG Green
+    }
+    Pause-Menu
+}
+
+# 14 — Analisis de Email
+function Tool-14 {
+    Show-Section "14 - Analisis de Email"
+    Write-Color "  Email a analizar: " -FG White -NoNewline
+    $EMAIL = Read-Host
+    $parts = $EMAIL -split "@"
+    $DOMAIN = $parts[1]
+    Show-Result "Usuario" $parts[0]
+    Show-Result "Dominio" $DOMAIN
+    Write-Host ""
+    Write-Color "  -- Verificando registros MX del dominio --" -FG Cyan
+    try {
+        $mx = Resolve-DnsName -Name $DOMAIN -Type MX -ErrorAction Stop
+        foreach ($r in $mx) { Write-Color "  > $($r.NameExchange)" -FG Yellow }
+    } catch { Write-Color "  > (sin registros MX)" -FG DarkGray }
+    Write-Host ""
+    Write-Color "  -- Verificando SPF --" -FG Cyan
+    try {
+        $txt = Resolve-DnsName -Name $DOMAIN -Type TXT -ErrorAction Stop
+        $spf = $txt | Where-Object { $_.Strings -match "spf" }
+        foreach ($r in $spf) { Write-Color "  > $($r.Strings)" -FG Yellow }
+    } catch { Write-Color "  > (sin registro SPF)" -FG DarkGray }
+    Pause-Menu
+}
+
+# 15 — Cabecera de Email
+function Tool-15 {
+    Show-Section "15 - Analisis de Cabecera de Email"
+    Write-Color "  Pega las cabeceras del email (linea vacia para terminar):" -FG Yellow
+    Write-Host ""
+    $lines = @()
+    while ($true) {
+        $line = Read-Host "  >"
+        if ([string]::IsNullOrWhiteSpace($line)) { break }
+        $lines += $line
+    }
+    $headers = $lines -join "`n"
+    $patterns = @("Received:","From:","Reply-To:","X-Originating-IP:","Message-ID:")
+    foreach ($line in $lines) {
+        foreach ($p in $patterns) {
+            if ($line -match $p) {
+                Write-Color "  > $line" -FG Yellow
+            }
+        }
+    }
+    # Extraer IPs
+    Write-Host ""
+    Write-Color "  -- IPs detectadas --" -FG Cyan
+    $ipRegex = '\b(\d{1,3}\.){3}\d{1,3}\b'
+    $ips = [regex]::Matches($headers, $ipRegex) | ForEach-Object { $_.Value } | Sort-Object -Unique
+    foreach ($ip in $ips) {
+        Write-Color "  > $ip" -FG Green
+    }
+    Pause-Menu
+}
+
+# 16 — Email en brechas
+function Tool-16 {
+    Show-Section "16 - Email en Brechas de Datos"
+    Write-Color "  Email a verificar: " -FG White -NoNewline
+    $EMAIL = Read-Host
+    Write-Color "  Verificando en haveibeenpwned.com..." -FG Yellow
+    try {
+        $resp = Invoke-WebRequest -Uri "https://haveibeenpwned.com/api/v3/breachedaccount/$EMAIL" `
+            -Headers @{ "hibp-api-key" = "demo"; "user-agent" = "FCB-OSINT-Toolkit" } `
+            -TimeoutSec 10 -UseBasicParsing -ErrorAction Stop
+        if ($resp.StatusCode -eq 200) {
+            Write-Color "  [X] Email ENCONTRADO en brechas de datos" -FG Red
+        }
+    } catch {
+        if ($_.Exception.Response.StatusCode -eq 404) {
+            Write-Color "  [+] Email NO encontrado en brechas conocidas" -FG Green
+        } else {
+            Write-Color "  [!] Servicio requiere API key (gratuita en haveibeenpwned.com)" -FG Yellow
+            Write-Color "      https://haveibeenpwned.com/API/Key" -FG DarkGray
+        }
+    }
+    Pause-Menu
+}
+
+# 17 — robots.txt
+function Tool-17 {
+    Show-Section "17 - robots.txt OSINT"
+    Write-Color "  Dominio (sin https): " -FG White -NoNewline
+    $DOM = Read-Host
+    Write-Host ""
+    Write-Color "  -- https://$DOM/robots.txt --" -FG Cyan
+    $content = Invoke-WebRaw "https://$DOM/robots.txt"
+    if ($content) {
+        foreach ($line in $content -split "`n") {
+            Write-Color "  > $line" -FG White
+        }
+    } else {
+        Write-Color "  [!] No se pudo obtener robots.txt" -FG Red
+    }
+    Pause-Menu
+}
+
+# 18 — Dominio a IP
+function Tool-18 {
+    Show-Section "18 - Dominio -> IP"
+    Write-Color "  Dominio: " -FG White -NoNewline
+    $DOM = Read-Host
+    Write-Host ""
+    Write-Color "  -- IPv4 --" -FG Cyan
+    try {
+        $a = Resolve-DnsName -Name $DOM -Type A -ErrorAction Stop
+        foreach ($r in $a) {
+            $ip = $r.IPAddress
+            Write-Color "  > $ip" -FG Yellow
+            $geo = Invoke-API "https://ipapi.co/$ip/json/"
+            if ($geo) { Write-Color "    Pais: $($geo.country_name) | ISP: $($geo.org)" -FG DarkGray }
+        }
+    } catch { Write-Color "  > (sin registros A)" -FG DarkGray }
+    Write-Host ""
+    Write-Color "  -- IPv6 --" -FG Cyan
+    try {
+        $aaaa = Resolve-DnsName -Name $DOM -Type AAAA -ErrorAction Stop
+        foreach ($r in $aaaa) { Write-Color "  > $($r.IPAddress)" -FG Yellow }
+    } catch { Write-Color "  > (sin registros AAAA)" -FG DarkGray }
+    Pause-Menu
+}
+
+# 19 — Tecnologias web
+function Tool-19 {
+    Show-Section "19 - Tecnologias Web"
+    Write-Color "  URL (con https://): " -FG White -NoNewline
+    $URL = Read-Host
+    try {
+        $resp = Invoke-WebRequest -Uri $URL -TimeoutSec 10 -UseBasicParsing -ErrorAction Stop
+        Write-Color "  -- Cabeceras relevantes --" -FG Cyan
+        $interestingHeaders = @("Server","X-Powered-By","X-Generator","Via","X-Framework","X-CMS")
+        foreach ($h in $interestingHeaders) {
+            if ($resp.Headers[$h]) {
+                Show-Result $h $resp.Headers[$h]
+            }
+        }
+        Write-Host ""
+        Write-Color "  -- Deteccion por HTML --" -FG Cyan
+        $body = $resp.Content
+        if ($body -match "wp-content") { Write-Color "  > CMS: WordPress detectado" -FG Yellow }
+        if ($body -match "Joomla") { Write-Color "  > CMS: Joomla detectado" -FG Yellow }
+        if ($body -match "Drupal") { Write-Color "  > CMS: Drupal detectado" -FG Yellow }
+        if ($body -match "shopify") { Write-Color "  > E-commerce: Shopify detectado" -FG Yellow }
+        if ($body -match "react") { Write-Color "  > Framework: React detectado" -FG Yellow }
+        if ($body -match "vue") { Write-Color "  > Framework: Vue.js detectado" -FG Yellow }
+        if ($body -match "angular") { Write-Color "  > Framework: Angular detectado" -FG Yellow }
+        if ($body -match "jquery") { Write-Color "  > Libreria: jQuery detectado" -FG Yellow }
+        if ($body -match "bootstrap") { Write-Color "  > CSS: Bootstrap detectado" -FG Yellow }
+        if ($body -match "cloudflare") { Write-Color "  > CDN/WAF: Cloudflare detectado" -FG Yellow }
+        if ($body -match "gtag|google-analytics|UA-") { Write-Color "  > Analytics: Google Analytics detectado" -FG Yellow }
+    } catch {
+        Write-Color "  [!] Error: $_" -FG Red
+    }
+    Pause-Menu
+}
+
+# 20 — Reputacion IP
+function Tool-20 {
+    Show-Section "20 - Reputacion de IP"
+    Write-Color "  IP a verificar: " -FG White -NoNewline
+    $IP = Read-Host
+    $data = Invoke-API "https://ipapi.co/$IP/json/"
+    if ($data) {
+        Show-Result "Pais" $data.country_name
+        Show-Result "ISP"  $data.org
+        Show-Result "ASN"  $data.asn
+    }
+    Write-Host ""
+    Write-Color "  -- Verificar manualmente en: --" -FG Cyan
+    Write-Color "  > https://www.abuseipdb.com/check/$IP" -FG Yellow
+    Write-Color "  > https://www.virustotal.com/gui/ip-address/$IP" -FG Yellow
+    Write-Color "  > https://talosintelligence.com/reputation_center/lookup?search=$IP" -FG Yellow
+    Write-Host ""
+    Write-Color "  [!] Para datos completos: API key gratuita en abuseipdb.com" -FG DarkGray
+    Pause-Menu
+}
+
+# 21 — Sherlock
+function Tool-21 {
+    Show-Section "21 - Sherlock - Usuario en Redes Sociales"
+    Write-Color "  Nombre de usuario a buscar: " -FG White -NoNewline
+    $USER = Read-Host
+    # Sherlock no es nativo de Windows, generamos URLs manuales
+    Write-Host ""
+    Write-Color "  -- Busqueda manual en redes sociales --" -FG Cyan
+    $SITES = @{
+        "Twitter/X"  = "https://twitter.com/$USER"
+        "Instagram"  = "https://instagram.com/$USER"
+        "GitHub"     = "https://github.com/$USER"
+        "Reddit"     = "https://reddit.com/user/$USER"
+        "TikTok"     = "https://tiktok.com/@$USER"
+        "LinkedIn"   = "https://linkedin.com/in/$USER"
+        "Facebook"   = "https://facebook.com/$USER"
+        "Pinterest"  = "https://pinterest.com/$USER"
+        "YouTube"    = "https://youtube.com/@$USER"
+        "Twitch"     = "https://twitch.tv/$USER"
+        "Telegram"   = "https://t.me/$USER"
+        "Steam"      = "https://steamcommunity.com/id/$USER"
+        "Spotify"    = "https://open.spotify.com/user/$USER"
+        "Snapchat"   = "https://snapchat.com/add/$USER"
+        "Tumblr"     = "https://$USER.tumblr.com"
+    }
+    foreach ($site in $SITES.GetEnumerator()) {
+        $url = $site.Value
+        try {
+            $resp = Invoke-WebRequest -Uri $url -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
+            if ($resp.StatusCode -eq 200) {
+                Write-Color "  [+] $($site.Key): $url" -FG Green
+            }
+        } catch {
+            Write-Color "  [-] $($site.Key)" -FG DarkGray
+        }
+    }
+    Pause-Menu
+}
+
+# 22 — Buscar en Pastebin
+function Tool-22 {
+    Show-Section "22 - Busqueda en Pastebin"
+    Write-Color "  Termino a buscar (email, usuario, IP): " -FG White -NoNewline
+    $TERM = Read-Host
+    $ENC = [System.Uri]::EscapeDataString($TERM)
+    Write-Host ""
+    Write-Color "  -- URLs generadas --" -FG Cyan
+    Write-Color "  > https://psbdmp.ws/search/$ENC" -FG Yellow
+    Write-Color "  > https://pastebin.com/search?q=$ENC" -FG Yellow
+    Write-Color "  > https://gist.github.com/search?q=$ENC" -FG Yellow
+    Write-Host ""
+    Write-Color "  Abre estas URLs en tu navegador para ver resultados" -FG DarkGray
+    Write-Host ""
+    Write-Color "  Abrir en navegador? (s/n): " -FG White -NoNewline
+    $resp = Read-Host
+    if ($resp -eq "s" -or $resp -eq "S") {
+        Start-Process "https://psbdmp.ws/search/$ENC"
+        Start-Process "https://pastebin.com/search?q=$ENC"
+    }
+    Pause-Menu
+}
+
+# 23 — Google Dork
+function Tool-23 {
+    Show-Section "23 - Google Dorks para OSINT"
+    Write-Color "  Objetivo (email, usuario, nombre, dominio): " -FG White -NoNewline
+    $TARGET = Read-Host
+    $ENC = [System.Uri]::EscapeDataString($TARGET)
+    Write-Host ""
+    Write-Color "  -- Dorks generados --" -FG Cyan
+    Write-Color "  > General:          https://google.com/search?q=`"$ENC`"" -FG Yellow
+    Write-Color "  > Redes sociales:   https://google.com/search?q=`"$ENC`"+site:twitter.com+OR+site:instagram.com" -FG Yellow
+    Write-Color "  > Documentos:       https://google.com/search?q=`"$ENC`"+filetype:pdf+OR+filetype:doc" -FG Yellow
+    Write-Color "  > En foros:         https://google.com/search?q=`"$ENC`"+site:reddit.com" -FG Yellow
+    Write-Color "  > Imagenes:         https://google.com/search?q=`"$ENC`"&tbm=isch" -FG Yellow
+    Write-Host ""
+    Write-Color "  Abrir busqueda general en navegador? (s/n): " -FG White -NoNewline
+    $resp = Read-Host
+    if ($resp -eq "s" -or $resp -eq "S") {
+        Start-Process "https://google.com/search?q=`"$ENC`""
+    }
+    Pause-Menu
+}
+
+# 24 — EXIF de imagen
+function Tool-24 {
+    Show-Section "24 - Metadatos EXIF de Imagen"
+    Write-Color "  Ruta de la imagen (C:\...) o URL: " -FG White -NoNewline
+    $IMG = Read-Host
+    try {
+        if ($IMG -match "^https?://") {
+            # Descargar temporalmente
+            $tmp = "$env:TEMP\fcb_img_tmp"
+            Invoke-WebRequest -Uri $IMG -OutFile $tmp -TimeoutSec 10 -UseBasicParsing
+            $IMG = $tmp
+        }
+        Add-Type -AssemblyName System.Drawing
+        $bitmap = New-Object System.Drawing.Bitmap($IMG)
+        $props = $bitmap.PropertyItems
+        $EXIF_TAGS = @{
+            0x010F = "Fabricante"
+            0x0110 = "Modelo"
+            0x0132 = "Fecha modificacion"
+            0x9003 = "Fecha original"
+            0x0112 = "Orientacion"
+            0x8827 = "ISO"
+            0x829A = "Velocidad obturacion"
+            0x829D = "Apertura"
+        }
+        foreach ($prop in $props) {
+            if ($EXIF_TAGS.ContainsKey($prop.Id)) {
+                $val = [System.Text.Encoding]::ASCII.GetString($prop.Value).Trim("`0")
+                Show-Result $EXIF_TAGS[$prop.Id] $val
+            }
+        }
+        $bitmap.Dispose()
+        if (-not $props) { Write-Color "  [*] No se encontraron metadatos EXIF" -FG Yellow }
+    } catch {
+        Write-Color "  [!] Error leyendo imagen: $_" -FG Red
+    }
+    Pause-Menu
+}
+
+# 25 — Hash de archivo
+function Tool-25 {
+    Show-Section "25 - Hash de Archivo (evidencia digital)"
+    Write-Color "  Ruta del archivo: " -FG White -NoNewline
+    $FILE = Read-Host
+    if (-not (Test-Path $FILE)) {
+        Write-Color "  [!] Archivo no encontrado" -FG Red
+        Pause-Menu; return
+    }
+    Show-Result "MD5"    (Get-FileHash $FILE -Algorithm MD5).Hash
+    Show-Result "SHA1"   (Get-FileHash $FILE -Algorithm SHA1).Hash
+    Show-Result "SHA256" (Get-FileHash $FILE -Algorithm SHA256).Hash
+    Show-Result "Tamano" "$([Math]::Round((Get-Item $FILE).Length / 1KB, 2)) KB"
+    Pause-Menu
+}
+
+# 26 — Detectar VPN/Proxy
+function Tool-26 {
+    Show-Section "26 - Detectar VPN / Proxy"
+    Write-Color "  IP a analizar: " -FG White -NoNewline
+    $IP = Read-Host
+    $data = Invoke-API "https://proxycheck.io/v2/$IP`?vpn=1&asn=1"
+    if ($data -and $data.$IP) {
+        $info = $data.$IP
+        Show-Result "Proxy"   $info.proxy
+        Show-Result "VPN"     $info.vpn
+        Show-Result "Tipo"    $info.type
+        Show-Result "Pais"    $info.country
+        Show-Result "ISP"     $info.provider
+    } else {
+        Write-Color "  API proxycheck.io -- limite 1000/dia gratis" -FG DarkGray
+        Write-Color "  > Verifica manualmente en: https://proxycheck.io/#ipcheck" -FG Yellow
+    }
+    Pause-Menu
+}
+
+# 27 — TOR Exit Nodes
+function Tool-27 {
+    Show-Section "27 - Verificar IP en Lista TOR"
+    Write-Color "  IP a verificar: " -FG White -NoNewline
+    $IP = Read-Host
+    Write-Color "  Consultando lista TOR..." -FG Yellow
+    try {
+        $torList = (Invoke-WebRequest -Uri "https://check.torproject.org/torbulkexitlist" -TimeoutSec 15 -UseBasicParsing).Content
+        if ($torList -match [regex]::Escape($IP)) {
+            Write-Color "  [X] Esta IP ES un nodo de salida TOR" -FG Red
+        } else {
+            Write-Color "  [+] Esta IP NO esta en la lista de nodos TOR conocidos" -FG Green
+        }
+    } catch {
+        Write-Color "  [!] No se pudo consultar la lista TOR" -FG Red
+        Write-Color "  > Verifica en: https://check.torproject.org/" -FG Yellow
+    }
+    Pause-Menu
+}
+
+# 28 — Shodan
+function Tool-28 {
+    Show-Section "28 - Busqueda en Shodan"
+    Write-Color "  IP o termino a buscar en Shodan: " -FG White -NoNewline
+    $TERM = Read-Host
+    $ENC = [System.Uri]::EscapeDataString($TERM)
+    Write-Host ""
+    Write-Color "  > https://www.shodan.io/search?query=$ENC" -FG Yellow
+    Write-Color "  > https://www.shodan.io/host/$TERM" -FG Yellow
+    Write-Host ""
+    Write-Color "  Abrir en navegador? (s/n): " -FG White -NoNewline
+    $resp = Read-Host
+    if ($resp -eq "s" -or $resp -eq "S") {
+        Start-Process "https://www.shodan.io/host/$TERM"
+    }
+    Pause-Menu
+}
+
+# 29 — IP en blacklist
+function Tool-29 {
+    Show-Section "29 - IP en Listas Negras (DNSBL)"
+    Write-Color "  IP a verificar: " -FG White -NoNewline
+    $IP = Read-Host
+    $octets = $IP -split "\."
+    $REVERSED = "$($octets[3]).$($octets[2]).$($octets[1]).$($octets[0])"
+    $DNSBL = @(
+        "zen.spamhaus.org",
+        "bl.spamcop.net",
+        "dnsbl.sorbs.net",
+        "b.barracudacentral.org",
+        "dnsbl-1.uceprotect.net"
+    )
+    foreach ($BL in $DNSBL) {
+        try {
+            $result = Resolve-DnsName -Name "$REVERSED.$BL" -Type A -ErrorAction Stop
+            Write-Color "  [X] En lista: $BL -> $($result.IPAddress)" -FG Red
+        } catch {
+            Write-Color "  [+] OK: $BL" -FG Green
+        }
+    }
+    Pause-Menu
+}
+
+# 30 — Reputacion de dominio
+function Tool-30 {
+    Show-Section "30 - Reputacion de Dominio"
+    Write-Color "  Dominio: " -FG White -NoNewline
+    $DOM = Read-Host
+    Write-Host ""
+    Write-Color "  > VirusTotal: https://www.virustotal.com/gui/domain/$DOM" -FG Yellow
+    Write-Color "  > URLVoid:    https://www.urlvoid.com/scan/$DOM" -FG Yellow
+    Write-Color "  > Talos:      https://talosintelligence.com/reputation_center/lookup?search=$DOM" -FG Yellow
+    Write-Host ""
+    Write-Color "  -- Verificacion basica --" -FG Cyan
+    try {
+        $mx = Resolve-DnsName -Name $DOM -Type MX -ErrorAction Stop
+        Show-Result "MX" ($mx | Select-Object -First 1 -ExpandProperty NameExchange)
+    } catch {}
+    Pause-Menu
+}
+
+# 31 — Mi IP publica
+function Tool-31 {
+    Show-Section "31 - Mi IP Publica"
+    $IPV4 = (Invoke-WebRaw "https://api.ipify.org").Trim()
+    Show-Result "IPv4 publica" $IPV4
+    try {
+        $IPV6 = (Invoke-WebRaw "https://api6.ipify.org").Trim()
+        Show-Result "IPv6 publica" $IPV6
+    } catch {
+        Show-Result "IPv6 publica" "N/A"
+    }
+    Write-Host ""
+    $geo = Invoke-API "https://ipapi.co/$IPV4/json/"
+    if ($geo) {
+        Show-Result "Pais" $geo.country_name
+        Show-Result "ISP"  $geo.org
+        Show-Result "ASN"  $geo.asn
+    }
+    Pause-Menu
+}
+
+# 32 — Red local info
+function Tool-32 {
+    Show-Section "32 - Informacion de Red Local"
+    Write-Color "  -- Interfaces de red --" -FG Cyan
+    Get-NetIPAddress | Where-Object { $_.AddressFamily -in @("IPv4","IPv6") } |
+        ForEach-Object { Show-Result "$($_.InterfaceAlias) ($($_.AddressFamily))" $_.IPAddress }
+    Write-Host ""
+    Write-Color "  -- Gateway por defecto --" -FG Cyan
+    Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue |
+        ForEach-Object { Show-Result "Gateway" $_.NextHop }
+    Write-Host ""
+    Write-Color "  -- DNS configurado --" -FG Cyan
+    Get-DnsClientServerAddress -ErrorAction SilentlyContinue |
+        Where-Object { $_.ServerAddresses } |
+        ForEach-Object { Show-Result $_.InterfaceAlias ($_.ServerAddresses -join ", ") }
+    Pause-Menu
+}
+
+# 33 — Escaneo red local
+function Tool-33 {
+    Show-Section "33 - Escaneo de Red Local"
+    Write-Color "  Rango IP (ej: 192.168.1): " -FG White -NoNewline
+    $RANGE = Read-Host
+    Write-Host ""
+    Write-Color "  Escaneando $RANGE.1 - $RANGE.254 ..." -FG Yellow
+    Write-Host ""
+    1..254 | ForEach-Object {
+        $IP = "$RANGE.$_"
+        if (Test-Connection -ComputerName $IP -Count 1 -TimeoutSeconds 1 -Quiet -ErrorAction SilentlyContinue) {
+            try {
+                $hostname = [System.Net.Dns]::GetHostEntry($IP).HostName
+            } catch { $hostname = "N/A" }
+            Write-Color "  [+] $IP activo | Hostname: $hostname" -FG Green
+        }
+    }
+    Write-Host ""
+    Write-Color "  [*] Escaneo completado." -FG Cyan
+    Pause-Menu
+}
+
+# 34 — Puerto especifico
+function Tool-34 {
+    Show-Section "34 - Verificar Puerto Especifico"
+    Write-Color "  Host o IP: " -FG White -NoNewline
+    $HOST = Read-Host
+    Write-Color "  Puerto: " -FG White -NoNewline
+    $PORT = [int](Read-Host)
+    $tcp = New-Object System.Net.Sockets.TcpClient
+    try {
+        $conn = $tcp.BeginConnect($HOST, $PORT, $null, $null)
+        $wait = $conn.AsyncWaitHandle.WaitOne(3000, $false)
+        if ($wait -and $tcp.Connected) {
+            Write-Color "  [+] Puerto $PORT esta ABIERTO en $HOST" -FG Green
+        } else {
+            Write-Color "  [-] Puerto $PORT esta CERRADO o filtrado en $HOST" -FG Red
+        }
+        $tcp.Close()
+    } catch {
+        Write-Color "  [-] Puerto $PORT esta CERRADO o filtrado en $HOST" -FG Red
+    }
+    Pause-Menu
+}
+
+# 35 — Geoloc coordenadas
+function Tool-35 {
+    Show-Section "35 - Geolocalizar Coordenadas"
+    Write-Color "  Latitud: " -FG White -NoNewline
+    $LAT = Read-Host
+    Write-Color "  Longitud: " -FG White -NoNewline
+    $LON = Read-Host
+    $data = Invoke-API "https://nominatim.openstreetmap.org/reverse?lat=$LAT&lon=$LON&format=json"
+    if ($data) {
+        Show-Result "Direccion"   $data.display_name
+        Show-Result "Pais"        $data.address.country
+        $ciudad = if ($data.address.city) { $data.address.city } elseif ($data.address.town) { $data.address.town } else { $data.address.village }
+        Show-Result "Ciudad"      $ciudad
+        Show-Result "Google Maps" "https://maps.google.com/?q=$LAT,$LON"
+    } else {
+        Write-Color "  [!] No se pudo geolocalizar." -FG Red
+        Write-Color "  > https://maps.google.com/?q=$LAT,$LON" -FG Yellow
+    }
+    Pause-Menu
+}
+
+# 36 — Whois IP
+function Tool-36 {
+    Show-Section "36 - WHOIS de IP"
+    Write-Color "  IP: " -FG White -NoNewline
+    $IP = Read-Host
+    try {
+        $result = & whois $IP 2>&1
+        $result | Select-String -Pattern "netname|country|org-name|address|abuse|inetnum|cidr" -CaseSensitive:$false |
+            ForEach-Object { Write-Color "  > $($_.Line)" -FG White }
+    } catch {
+        Write-Color "  Verifica en: https://search.arin.net/rdap/?query=$IP" -FG Yellow
+    }
+    Pause-Menu
+}
+
+# 37 — Analisis de URL
+function Tool-37 {
+    Show-Section "37 - Analisis de URL"
+    Write-Color "  URL completa: " -FG White -NoNewline
+    $URL = Read-Host
+    $uri = [System.Uri]$URL
+    $DOMAIN = $uri.Host
+    Show-Result "Dominio" $DOMAIN
+    try {
+        $ip = (Resolve-DnsName -Name $DOMAIN -Type A -ErrorAction Stop | Select-Object -First 1).IPAddress
+        Show-Result "IP" $ip
+    } catch {}
+    Write-Host ""
+    Write-Color "  -- Redirecciones --" -FG Cyan
+    try {
+        $resp = Invoke-WebRequest -Uri $URL -MaximumRedirection 10 -UseBasicParsing -ErrorAction Stop
+        Show-Result "URL final" $resp.BaseResponse.ResponseUri
+    } catch {}
+    Write-Host ""
+    Write-Color "  -- Verificar en VirusTotal --" -FG Cyan
+    $ENC = [System.Uri]::EscapeDataString($URL)
+    Write-Color "  > https://www.virustotal.com/gui/url/$ENC/detection" -FG Yellow
+    Pause-Menu
+}
+
+# 38 — IP desde Email
+function Tool-38 {
+    Show-Section "38 - Extraer IP desde Cabecera de Email"
+    Write-Color "  Pega el campo Received de las cabeceras del email:" -FG Yellow
+    Write-Color "  > " -FG Yellow -NoNewline
+    $HEADER = Read-Host
+    $ipRegex = '\b(\d{1,3}\.){3}\d{1,3}\b'
+    $ips = [regex]::Matches($HEADER, $ipRegex) | ForEach-Object { $_.Value } | Sort-Object -Unique
+    foreach ($ip in $ips) {
+        Write-Color "  > IP detectada: $ip" -FG Green
+        $geo = Invoke-API "https://ipapi.co/$ip/json/"
+        if ($geo) { Write-Color "    Pais: $($geo.country_name) | ISP: $($geo.org)" -FG DarkGray }
+    }
+    if (-not $ips) { Write-Color "  [-] No se detectaron IPs en el texto." -FG Red }
+    Pause-Menu
+}
+
+# 39 — Generar reporte
+function Tool-39 {
+    Show-Section "39 - Generar Reporte de Sesion"
+    $DATE = Get-Date -Format "yyyyMMdd_HHmmss"
+    $FILE = "reporte_fcb_$DATE.txt"
+    $IP = (Invoke-WebRaw "https://api.ipify.org").Trim()
+    $content = @"
+==================================
+  FUCK CYBER BULLYING -- REPORTE
+  Generado: $(Get-Date)
+==================================
+
+Este reporte fue generado con fines eticos
+para documentar y combatir el ciberacoso.
+
+Mi IP publica: $IP
+Fecha/Hora:    $(Get-Date)
+Hostname:      $($env:COMPUTERNAME)
+Usuario:       $($env:USERNAME)
+
+Para reportar ciberacoso en Colombia:
+  > Centro Cibernetico Policial: www.ccp.gov.co
+  > Te Protejo: www.teprotejo.org
+  > Linea 141 (Bienestar Familiar)
+
+Para reportar en plataformas:
+  > Instagram: https://help.instagram.com
+  > Twitter/X: https://help.twitter.com
+  > TikTok: https://support.tiktok.com
+  > Facebook: https://www.facebook.com/help
+
+"@
+    $content | Out-File -FilePath $FILE -Encoding UTF8
+    Write-Color "  [+] Reporte guardado en: $FILE" -FG Green
+    Pause-Menu
+}
+
+# 40 — Ayuda y legal
+function Tool-40 {
+    Show-Section "40 - Ayuda, Legal y Recursos Anti-Ciberacoso"
+    Write-Color "  AVISO LEGAL" -FG Red
+    Write-Color "  Esta herramienta es SOLO para uso etico y autorizado." -FG DarkGray
+    Write-Color "  El uso indebido puede constituir delito informatico." -FG DarkGray
+    Write-Host ""
+    Write-Color "  DEPENDENCIAS (todas nativas en Windows)" -FG Cyan
+    $checks = @("curl","nslookup","tracert","openssl")
+    foreach ($dep in $checks) {
+        if (Get-Command $dep -ErrorAction SilentlyContinue) {
+            Write-Color "  [+] $dep" -FG Green
+        } else {
+            Write-Color "  [-] $dep (no disponible)" -FG Red
+        }
+    }
+    Write-Host ""
+    Write-Color "  RECURSOS ANTI-CIBERACOSO" -FG Cyan
+    Write-Color "  > Colombia:       www.teprotejo.org | Linea 141" -FG Green
+    Write-Color "  > Policia:        www.ccp.gov.co (Centro Cibernetico)" -FG Green
+    Write-Color "  > Internacional:  www.stopbullying.gov" -FG Green
+    Write-Host ""
+    Write-Color "  APIs GRATUITAS RECOMENDADAS" -FG Magenta
+    Write-Color "  > https://www.abuseipdb.com/api       (reputacion IP)" -FG Green
+    Write-Color "  > https://haveibeenpwned.com/API/Key  (brechas email)" -FG Green
+    Write-Color "  > https://numverify.com               (info telefono)" -FG Green
+    Write-Color "  > https://app.abstractapi.com         (multiple)" -FG Green
+    Pause-Menu
+}
+
+# ══════════════════════════════════════════════════════════════
+#  BUCLE PRINCIPAL
+# ══════════════════════════════════════════════════════════════
+while ($true) {
+    Show-MainMenu
+    $OPT = Read-Host
+    Write-Host ""
+
+    switch ($OPT.Trim()) {
+        { $_ -in "1","01" }  { Tool-01 }
+        { $_ -in "2","02" }  { Tool-02 }
+        { $_ -in "3","03" }  { Tool-03 }
+        { $_ -in "4","04" }  { Tool-04 }
+        { $_ -in "5","05" }  { Tool-05 }
+        { $_ -in "6","06" }  { Tool-06 }
+        { $_ -in "7","07" }  { Tool-07 }
+        { $_ -in "8","08" }  { Tool-08 }
+        { $_ -in "9","09" }  { Tool-09 }
+        "10" { Tool-10 }
+        "11" { Tool-11 }
+        "12" { Tool-12 }
+        "13" { Tool-13 }
+        "14" { Tool-14 }
+        "15" { Tool-15 }
+        "16" { Tool-16 }
+        "17" { Tool-17 }
+        "18" { Tool-18 }
+        "19" { Tool-19 }
+        "20" { Tool-20 }
+        "21" { Tool-21 }
+        "22" { Tool-22 }
+        "23" { Tool-23 }
+        "24" { Tool-24 }
+        "25" { Tool-25 }
+        "26" { Tool-26 }
+        "27" { Tool-27 }
+        "28" { Tool-28 }
+        "29" { Tool-29 }
+        "30" { Tool-30 }
+        "31" { Tool-31 }
+        "32" { Tool-32 }
+        "33" { Tool-33 }
+        "34" { Tool-34 }
+        "35" { Tool-35 }
+        "36" { Tool-36 }
+        "37" { Tool-37 }
+        "38" { Tool-38 }
+        "39" { Tool-39 }
+        "40" { Tool-40 }
+        { $_ -in "0","00" } {
+            Clear-Host
+            Write-Host ""
+            Write-Color "  FUCK CYBER BULLYING -- Hasta pronto." -FG Red
+            Write-Color "  Sigue ayudando a quienes lo necesitan." -FG DarkGray
+            Write-Host ""
+            exit 0
+        }
+        default {
+            Write-Color "  [!] Opcion invalida" -FG Red
+            Start-Sleep -Seconds 1
+        }
+    }
+}
