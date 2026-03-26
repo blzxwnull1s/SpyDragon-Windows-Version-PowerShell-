@@ -1,0 +1,10 @@
+Cómo usarlo en Windows
+Paso 1 — Descargar el archivo
+Guarda fcb_osint.ps1 en una carpeta, por ejemplo C:\fcb_osint\
+Paso 2 — Permitir ejecución de scripts (solo una vez)
+Abre PowerShell como Administrador y ejecuta:
+powershellSet-ExecutionPolicy RemoteSigned -Scope CurrentUser
+Escribe S y Enter para confirmar.
+Paso 3 — Ejecutar el toolkit
+powershellcd C:\fcb_osint
+.\fcb_osint.ps1
